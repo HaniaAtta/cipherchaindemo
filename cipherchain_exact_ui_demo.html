@@ -1,0 +1,556 @@
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --green:#00ffb4;--green2:#0ea5e9;--bg:#050508;--bg2:rgba(5,5,8,.9);
+  --card:rgba(255,255,255,.03);--border:#1a2a1a;--border2:#334;
+  --text:#e2e8f0;--muted:#888;--dim:#555;--red:#ef4444;--red2:#f87171;
+  --yellow:#facc15;--orange:#f97316;--purple:#a855f7;
+}
+#player{background:var(--bg);border-radius:14px;overflow:hidden;font-family:'Courier New',monospace;width:100%;position:relative;border:1px solid #0d2b1a}
+#stage{width:100%;aspect-ratio:16/9;position:relative;overflow:hidden;background:var(--bg)}
+canvas#ptc{position:absolute;inset:0;z-index:0;pointer-events:none}
+.scene{position:absolute;inset:0;opacity:0;transition:opacity .55s ease;display:flex;flex-direction:column;pointer-events:none;z-index:1}
+.scene.active{opacity:1;pointer-events:auto}
+
+/* NAV — exact match */
+.nav{position:relative;z-index:10;background:rgba(5,5,8,.9);backdrop-filter:blur(12px);border-bottom:1px solid #0d2b1a;display:flex;align-items:center;justify-content:space-between;padding:0 2.5%;height:10%;flex-shrink:0}
+.logo-wrap{display:flex;align-items:center;gap:8px;cursor:pointer}
+.logo-hex{font-size:clamp(14px,2.8vw,22px);color:var(--green)}
+.logo-txt{font-size:clamp(10px,1.8vw,18px);font-weight:700;letter-spacing:2px;color:var(--green)}
+.nav-stats{display:flex;gap:clamp(6px,1.5vw,16px);align-items:center;font-size:clamp(6px,1vw,12px)}
+.nav-right{display:flex;gap:6px;align-items:center}
+.nav-btn{background:transparent;border:1px solid #1a2a1a;color:#666;padding:4px 10px;border-radius:8px;cursor:pointer;font-size:clamp(6px,.95vw,12px);letter-spacing:.5px;font-family:'Courier New',monospace}
+.nav-btn.on{background:rgba(0,255,180,.1);border-color:var(--green);color:var(--green)}
+.wallet-pill{color:var(--green);font-size:clamp(6px,.9vw,11px);background:rgba(0,255,180,.1);border:1px solid var(--green);padding:3px 8px;border-radius:6px}
+.connect-btn{background:linear-gradient(135deg,#00ffb4,#0ea5e9);border:none;color:#050508;font-weight:700;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:clamp(6px,.95vw,12px);font-family:'Courier New',monospace}
+
+/* BODY */
+.sbody{flex:1;position:relative;z-index:2;display:flex;align-items:center;justify-content:center;padding:1.5% 3%;overflow:hidden}
+
+/* CAPTION */
+.caption{position:absolute;bottom:0;left:0;right:0;background:rgba(5,5,8,.88);border-top:1px solid #0d2b1a;padding:1% 2.5%;display:flex;align-items:center;gap:10px;z-index:10}
+.cap-n{color:var(--green);font-size:clamp(6px,.85vw,10px);font-weight:700;letter-spacing:2px;min-width:36px}
+.cap-t{color:var(--text);font-size:clamp(7px,1.1vw,12px)}
+
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes lockBlink{0%,100%{background:rgba(239,68,68,.15)}50%{background:rgba(239,68,68,.35)}}
+@keyframes lockPulse{0%,100%{box-shadow:0 0 5px rgba(239,68,68,.3)}50%{box-shadow:0 0 18px rgba(239,68,68,.85)}}
+@keyframes wrongFlash{0%{transform:scale(1);box-shadow:0 0 0 rgba(239,68,68,0);background:#991b1b;border-color:#ef4444}25%{transform:scale(1.45);box-shadow:0 0 28px rgba(239,68,68,1);background:#b91c1c;border-color:#f87171}60%{transform:scale(1.1);box-shadow:0 0 14px rgba(239,68,68,.6)}100%{transform:scale(1);box-shadow:0 0 0 rgba(239,68,68,0);background:#1a1a1a;border-color:#2a2a2a}}
+@keyframes winGlow{0%,100%{color:#facc15;text-shadow:0 0 20px rgba(250,204,21,.4)}50%{color:#fde68a;text-shadow:0 0 40px rgba(250,204,21,.8)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* HOME — exact */
+.home-wrap{text-align:center;width:100%}
+.round-badge{display:inline-block;background:rgba(0,255,180,.1);border:1px solid var(--green);color:var(--green);padding:3px 14px;border-radius:20px;font-size:clamp(6px,.85vw,11px);letter-spacing:3px;margin-bottom:2%;animation:fadeIn .5s ease .1s both}
+.home-h1{font-size:clamp(24px,6.5vw,72px);font-weight:900;margin:0 0 1.5%;line-height:1}
+.home-h1 .g{color:var(--green)}
+.home-h1 .w{color:var(--text)}
+.home-sub{color:var(--muted);font-size:clamp(7px,1.1vw,14px);line-height:1.7;margin-bottom:2.5%;animation:fadeIn .5s ease .4s both}
+.stats-row{display:flex;gap:1.5%;justify-content:center;margin-bottom:2%;animation:fadeIn .5s ease .55s both;flex-wrap:wrap}
+.stat-box{background:var(--card);border:1px solid #1a2a1a;border-radius:10px;padding:2% 2.5%;min-width:14%;text-align:center}
+.stat-v{font-size:clamp(10px,2vw,20px);font-weight:700;color:var(--green)}
+.stat-l{font-size:clamp(5px,.75vw,10px);color:var(--dim);letter-spacing:1px;margin-top:1px}
+.prize-row{display:flex;gap:1.5%;justify-content:center;margin-bottom:2.5%;animation:fadeIn .5s ease .7s both}
+.prize-box{border-radius:10px;padding:1.5% 2.5%;min-width:16%;text-align:center}
+.cta-row{display:flex;gap:1.5%;justify-content:center;animation:fadeIn .5s ease .85s both}
+.btn-main{background:linear-gradient(135deg,#00ffb4,#0ea5e9);border:none;color:#050508;font-weight:700;padding:2% 5%;border-radius:10px;font-size:clamp(7px,1.2vw,14px);cursor:pointer;font-family:'Courier New',monospace;letter-spacing:.5px}
+
+/* GAME HUD */
+.g-wrap{width:100%;max-width:640px}
+.hud-row{display:flex;gap:1.2%;margin-bottom:1.5%}
+.hud-box{background:var(--card);border:1px solid #1a2a1a;border-radius:8px;padding:1.2% 1.5%;text-align:center;flex:1}
+.hud-v{font-size:clamp(8px,1.6vw,16px);font-weight:700;color:var(--green)}
+.hud-l{font-size:clamp(4px,.65vw,9px);color:var(--dim);letter-spacing:1px}
+.xp-wrap{position:relative;height:5px;background:#1a1a1a;border-radius:3px;margin-bottom:2.5%;overflow:hidden}
+.xp-fill{position:absolute;left:0;top:0;height:100%;background:linear-gradient(90deg,#00ffb4,#0ea5e9);border-radius:3px;transition:width 1.2s ease}
+
+/* LEVEL CARD */
+.lcard{border-radius:14px;padding:3% 3.5%}
+.diff-badge{border-radius:5px;padding:2px 8px;font-size:clamp(5px,.8vw,10px);font-weight:700;letter-spacing:1px;margin-right:2%}
+.lvl-tag{color:var(--dim);font-size:clamp(5px,.8vw,11px);letter-spacing:2px}
+.lvl-title{color:var(--text);font-size:clamp(8px,1.4vw,15px);font-weight:700;margin:1.5% 0 2%}
+.puzzle-box{background:rgba(0,0,0,.4);border:1px solid #1a1a2a;border-radius:8px;padding:2% 2.5%;margin-bottom:1.5%;min-height:10%;font-size:clamp(6px,.95vw,12px);color:#94a3b8;line-height:1.7;white-space:pre-wrap}
+.hint-box{background:rgba(250,204,21,.07);border:1px solid #713f12;border-radius:7px;padding:1.5% 2%;margin-bottom:1.5%;color:#fde68a;font-size:clamp(6px,.9vw,11px);line-height:1.5}
+.circles{display:flex;gap:1%;margin-bottom:1.5%;align-items:center}
+.circ{width:clamp(16px,3vw,30px);height:clamp(16px,3vw,30px);border-radius:8px;background:#1a1a1a;border:2px solid #2a2a2a;display:flex;align-items:center;justify-content:center;font-size:clamp(7px,1.1vw,13px);color:#333;transition:all .2s}
+.circ.w{background:#7f1d1d;border-color:#ef4444;color:#fca5a5}
+.circ.fl{background:#991b1b;border-color:#ef4444;color:#fff;animation:wrongFlash 1.1s ease forwards}
+.circ-txt{font-size:clamp(5px,.8vw,12px);color:#94a3b8;margin-left:1%}
+.inp-row{display:flex;gap:1.2%;margin-bottom:1%}
+.fake-inp{flex:1;background:rgba(0,0,0,.5);border:1px solid #334;border-radius:8px;padding:1.8% 2%;color:var(--text);font-size:clamp(7px,1.1vw,13px);font-family:'Courier New',monospace}
+.fake-inp.active{border-color:var(--green);box-shadow:0 0 0 3px rgba(0,255,180,.08)}
+.cursor{display:inline-block;width:1.5px;height:1em;background:var(--green);margin-left:1px;animation:blink .7s step-end infinite;vertical-align:middle}
+.sub-btn{background:#00ffb4;border:none;color:#050508;font-weight:700;padding:1.8% 3.5%;border-radius:8px;font-size:clamp(6px,.95vw,12px);font-family:'Courier New',monospace;white-space:nowrap;letter-spacing:.5px}
+.sub-btn.ld{background:#1a2a1a;color:#3a5a3a}
+.feedback{border-radius:8px;padding:1.5% 2%;font-size:clamp(6px,.9vw,12px);animation:fadeIn .3s ease}
+.fb-ok{background:rgba(0,255,180,.1);border:1px solid var(--green);color:var(--green)}
+.fb-er{background:rgba(239,68,68,.1);border:1px solid var(--red);color:var(--red2)}
+.hint-btn{background:rgba(250,204,21,.12);border:1px solid #a16207;color:#fde68a;padding:1.2% 2%;border-radius:7px;font-size:clamp(5px,.8vw,11px);font-family:'Courier New',monospace;cursor:pointer;display:flex;align-items:center;gap:5px}
+
+/* INTERSTITIAL */
+.fact-wrap{background:rgba(250,204,21,.05);border:2px solid var(--yellow);border-radius:14px;padding:5% 7%;max-width:55%;text-align:center;animation:fadeIn .5s ease}
+.fact-done{color:var(--green);font-size:clamp(6px,.85vw,11px);letter-spacing:4px;margin-bottom:2%}
+.fact-emoji{font-size:clamp(28px,5.5vw,52px);animation:float 2s ease-in-out infinite;margin-bottom:2%}
+.fact-lbl{color:var(--dim);font-size:clamp(5px,.8vw,10px);letter-spacing:3px;margin-bottom:2%}
+.fact-text{color:var(--text);font-size:clamp(7px,1.1vw,13px);line-height:1.7;font-style:italic;margin-bottom:4%}
+.fact-next{background:linear-gradient(135deg,#00ffb4,#0ea5e9);border:none;color:#050508;font-weight:700;padding:2% 6%;border-radius:10px;font-size:clamp(7px,1.1vw,13px);font-family:'Courier New',monospace;cursor:pointer}
+
+/* LOCKOUT */
+.lock-banner{animation:lockBlink 1.5s infinite;border:2px solid var(--red);border-radius:12px;padding:2.5% 3%;text-align:center;margin-bottom:2%}
+.lock-title{color:var(--red2);font-size:clamp(9px,1.5vw,16px);font-weight:700;letter-spacing:2px}
+.lock-sub{color:#fca5a5;font-size:clamp(6px,.9vw,12px);margin-top:1%}
+.lock-timer{color:var(--red);font-size:clamp(18px,4vw,36px);font-weight:900;margin-top:1%;letter-spacing:3px}
+.lock-foot{color:var(--dim);font-size:clamp(5px,.7vw,10px);letter-spacing:2px;margin-top:.5%}
+
+/* WIN */
+.win-wrap{text-align:center;animation:fadeIn .5s ease}
+.trophy{font-size:clamp(36px,7vw,72px);animation:float 2s ease-in-out infinite;margin-bottom:1%}
+.win-title{font-size:clamp(20px,5vw,42px);font-weight:900;margin:0 0 .5%;animation:winGlow 2s ease-in-out infinite}
+.win-sub{color:var(--green);font-size:clamp(8px,1.3vw,16px);margin-bottom:2%}
+.win-score-box{background:var(--card);border:1px solid #1a2a1a;border-radius:10px;padding:1.5% 4%;display:inline-block;margin-bottom:1.5%}
+.win-score-v{font-size:clamp(16px,3.5vw,30px);font-weight:700;color:var(--green)}
+.win-score-l{font-size:clamp(5px,.75vw,10px);color:var(--dim);letter-spacing:2px}
+.win-prize{color:var(--muted);font-size:clamp(7px,1.1vw,13px);margin-bottom:.5%}
+.win-time{color:var(--dim);font-size:clamp(6px,.9vw,12px)}
+.win-stats{display:flex;gap:1.5%;justify-content:center;margin-top:2%}
+
+/* LEADERBOARD */
+.board-wrap{width:100%;max-width:640px}
+.board-hdr{display:flex;padding:1.2% 2.5%;background:rgba(0,255,180,.05);border-bottom:1px solid #1a2a1a;font-size:clamp(5px,.75vw,9px);color:var(--dim);letter-spacing:2px}
+.brow{display:flex;align-items:center;padding:1.2% 2.5%;border-bottom:1px solid #0d1117;font-size:clamp(6px,.95vw,11px)}
+.brow:first-child{background:rgba(250,204,21,.04)}
+.bp{width:10%;font-weight:700}
+.ba{flex:1;color:var(--text);font-size:clamp(6px,.9vw,11px)}
+.bl{width:15%;text-align:center}
+.bl span{background:#1a1a2a;border:1px solid #334;border-radius:5px;padding:1px 7px;font-size:clamp(5px,.8vw,10px);color:var(--green)}
+.bs{width:20%;text-align:right;color:var(--yellow);font-weight:700}
+.bst{width:12%;text-align:center}
+.live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.5s infinite}
+
+/* CONTROLS */
+#ctrls{background:rgba(5,5,8,.95);border-top:1px solid #0d2b1a;padding:8px 14px}
+#tl-wrap{height:4px;background:#1a2a1a;border-radius:2px;margin-bottom:8px;cursor:pointer;position:relative}
+#tl-buf{position:absolute;inset:0;background:rgba(0,255,180,.1);border-radius:2px;width:0}
+#tl-prog{position:absolute;left:0;top:0;height:100%;background:var(--green);border-radius:2px;width:0;transition:width .25s linear}
+#tl-thumb{position:absolute;top:50%;width:11px;height:11px;background:var(--green);border-radius:50%;transform:translate(-50%,-50%);left:0;transition:left .25s linear;pointer-events:none;box-shadow:0 0 6px rgba(0,255,180,.5)}
+#ctrl-row{display:flex;align-items:center;gap:8px}
+.ctl{background:rgba(0,255,180,.08);border:1px solid var(--green);color:var(--green);padding:4px 12px;border-radius:8px;font-size:10px;font-family:'Courier New',monospace;cursor:pointer;letter-spacing:.5px}
+.ctl.off{background:transparent;border-color:#1a2a1a;color:#666}
+.ctl:hover{opacity:.8}
+.sdots{display:flex;gap:4px;align-items:center}
+.sd{width:6px;height:6px;border-radius:50%;background:#1a2a1a;cursor:pointer;transition:all .2s}
+.sd.on{background:var(--green);width:14px;border-radius:3px}
+#sc-lbl{color:var(--dim);font-size:10px;letter-spacing:.5px;flex:1;text-align:center}
+#td{color:#444;font-size:10px;letter-spacing:1px;min-width:68px;text-align:right}
+</style>
+
+
+<div id="player">
+  <div id="stage">
+    <canvas id="ptc"></canvas>
+
+    <!-- SCENE 0: HOME -->
+    <div class="scene active" id="sc0">
+      <div class="nav">
+        <div class="logo-wrap"><span class="logo-hex">⬡</span><span class="logo-txt">CipherChain</span></div>
+        <div class="nav-right">
+          <button class="nav-btn">🏠</button>
+          <button class="nav-btn">📊 Board</button>
+          <button class="nav-btn">🏆 Winners</button>
+          <button class="connect-btn">Connect Wallet</button>
+        </div>
+      </div>
+      <div class="sbody">
+        <div class="home-wrap">
+          <div class="round-badge">ROUND 1 · SEPOLIA TESTNET</div>
+          <h1 class="home-h1"><span class="g">Cipher</span><span class="w">Chain</span></h1>
+          <p class="home-sub">A fully on-chain CTF game. Solve 10 cryptographic puzzles.<br>First to finish claims the prize pool.</p>
+          <div class="stats-row">
+            <div class="stat-box"><div class="stat-v">💰</div><div class="stat-v">0.12 ETH</div><div class="stat-l">Prize Pool</div></div>
+            <div class="stat-box"><div class="stat-v">👥</div><div class="stat-v">12</div><div class="stat-l">Players</div></div>
+            <div class="stat-box"><div class="stat-v">🧩</div><div class="stat-v">10</div><div class="stat-l">Levels</div></div>
+            <div class="stat-box"><div class="stat-v">⛽</div><div class="stat-v">0.01 ETH</div><div class="stat-l">Entry Fee</div></div>
+          </div>
+          <div class="prize-row">
+            <div class="prize-box" style="border:1px solid var(--yellow)"><div style="color:var(--muted);font-size:clamp(6px,.85vw,12px)">🥇 1st</div><div style="font-size:clamp(12px,2.5vw,22px);font-weight:700;color:var(--yellow)">80%</div><div style="color:var(--dim);font-size:clamp(5px,.7vw,10px)">of pool</div></div>
+            <div class="prize-box" style="border:1px solid #a855f7"><div style="color:var(--muted);font-size:clamp(6px,.85vw,12px)">🥈 2nd</div><div style="font-size:clamp(12px,2.5vw,22px);font-weight:700;color:#c084fc">15%</div><div style="color:var(--dim);font-size:clamp(5px,.7vw,10px)">of pool</div></div>
+            <div class="prize-box" style="border:1px solid #94a3b8"><div style="color:var(--muted);font-size:clamp(6px,.85vw,12px)">🌱 Seed</div><div style="font-size:clamp(12px,2.5vw,22px);font-weight:700;color:#94a3b8">5%</div><div style="color:var(--dim);font-size:clamp(5px,.7vw,10px)">of pool</div></div>
+          </div>
+          <div class="cta-row">
+            <button class="btn-main">🔌 Connect Wallet First</button>
+          </div>
+        </div>
+      </div>
+      <div class="caption"><span class="cap-n">01/07</span><span class="cap-t">Welcome to CipherChain — pay 0.01 ETH to enter, solve 10 blockchain puzzles, first to finish wins the prize pool.</span></div>
+    </div>
+
+    <!-- SCENE 1: CONNECT -->
+    <div class="scene" id="sc1">
+      <div class="nav">
+        <div class="logo-wrap"><span class="logo-hex">⬡</span><span class="logo-txt">CipherChain</span></div>
+        <div class="nav-right"><button class="connect-btn">Connect Wallet</button></div>
+      </div>
+      <div class="sbody">
+        <div style="background:#050508;border:1px solid var(--green);border-radius:14px;padding:5% 6%;max-width:50%;text-align:center;box-shadow:0 0 40px rgba(0,255,180,.12);animation:fadeIn .4s ease">
+          <div style="font-size:clamp(24px,5vw,44px);margin-bottom:3%">🦊</div>
+          <div style="color:var(--green);font-size:clamp(10px,1.7vw,16px);font-weight:700;margin-bottom:2%">MetaMask</div>
+          <div style="color:var(--muted);font-size:clamp(6px,1vw,12px);margin-bottom:3%;line-height:1.6">Connect once — your signer is cached for the entire session. No more popups on every answer submission.</div>
+          <div style="background:#0a1a0a;border:1px solid #1a2a1a;border-radius:7px;padding:2% 3%;color:#4ade80;font-size:clamp(6px,.95vw,11px);margin-bottom:3%;letter-spacing:1px">0xA3f8...d429</div>
+          <div id="mmst" style="font-size:clamp(6px,.9vw,11px);color:var(--yellow);animation:pulse 1s infinite;margin-bottom:3%">Connecting...</div>
+          <div style="display:flex;gap:3%">
+            <div style="flex:1;background:rgba(255,255,255,.03);border:1px solid #334;color:#555;padding:2.5% 0;border-radius:8px;text-align:center;font-size:clamp(6px,.9vw,11px)">Cancel</div>
+            <div style="flex:1;background:var(--green);color:#050508;padding:2.5% 0;border-radius:8px;text-align:center;font-size:clamp(6px,.9vw,11px);font-weight:700">Connect</div>
+          </div>
+        </div>
+      </div>
+      <div class="caption"><span class="cap-n">02/07</span><span class="cap-t">MetaMask connects once — signer cached for the session. Every transaction after this submits silently, no popups.</span></div>
+    </div>
+
+    <!-- SCENE 2: LEVEL 1 EASY -->
+    <div class="scene" id="sc2">
+      <div class="nav">
+        <div class="logo-wrap"><span class="logo-hex">⬡</span><span class="logo-txt">CipherChain</span></div>
+        <div class="nav-stats"><span style="color:var(--yellow)">⭐ 0</span><span style="color:var(--green)">📈 1/10</span><span style="color:var(--muted)">🎯 100%</span><span style="color:#38bdf8">⏱ 00:00</span></div>
+        <div class="nav-right">
+          <button class="nav-btn">🏠</button><button class="nav-btn on">🎮 Play</button><button class="nav-btn">📊 Board</button>
+          <span class="wallet-pill">0xA3f8...d429</span>
+        </div>
+      </div>
+      <div class="sbody" style="align-items:flex-start;padding-top:1.5%">
+        <div class="g-wrap">
+          <div class="hud-row">
+            <div class="hud-box"><span style="font-size:clamp(10px,1.5vw,16px)">⭐</span><div class="hud-v">0</div><div class="hud-l">Score</div></div>
+            <div class="hud-box"><span style="font-size:clamp(10px,1.5vw,16px)">📈</span><div class="hud-v">1/10</div><div class="hud-l">Level</div></div>
+            <div class="hud-box"><span style="font-size:clamp(10px,1.5vw,16px)">🎯</span><div class="hud-v">100%</div><div class="hud-l">Accuracy</div></div>
+            <div class="hud-box"><span style="font-size:clamp(10px,1.5vw,16px)">💡</span><div class="hud-v">2</div><div class="hud-l">Hints Left</div></div>
+            <div class="hud-box" style="background:rgba(14,165,233,.07);border-color:#0369a1"><span style="font-size:clamp(10px,1.5vw,16px)">⏱</span><div class="hud-v" style="color:#38bdf8">00:00</div><div class="hud-l">TIME</div></div>
+          </div>
+          <div class="xp-wrap"><div class="xp-fill" id="xp2" style="width:0%"></div></div>
+          <div class="lcard" style="border:1px solid #22c55e;background:linear-gradient(135deg,#0d2b1a 0%,#0a0a0f 100%)">
+            <div style="margin-bottom:2%"><span class="diff-badge" style="background:#0d2b1a;border:1px solid #22c55e;color:#4ade80">EASY</span><span class="lvl-tag">LEVEL 1 / 10</span><div class="lvl-title">What is a blockchain?</div></div>
+            <div class="puzzle-box">A ________ is a distributed, immutable ledger of transactions linked together using cryptographic hashes. Each block contains the hash of the previous block, forming a chain. What is this technology?</div>
+            <div class="circles">
+              <div class="circ">○</div><div class="circ">○</div><div class="circ">○</div><div class="circ">○</div><div class="circ">○</div>
+              <span class="circ-txt">5 attempts left before 60m lockout</span>
+            </div>
+            <div class="inp-row">
+              <div class="fake-inp active" id="inp2"><span class="cursor"></span></div>
+              <button class="sub-btn" id="sub2">Submit ↵</button>
+            </div>
+            <div id="fb2" style="margin-top:1%"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:1.5%">
+              <button class="hint-btn">💡 Use Hint Token (2 left)</button>
+              <span style="color:var(--dim);font-size:clamp(5px,.75vw,11px)">Case insensitive ✓</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="caption"><span class="cap-n">03/07</span><span class="cap-t">Level 1 — Easy. Type your answer and press Submit. The smart contract verifies it on-chain with no wallet popup.</span></div>
+    </div>
+
+    <!-- SCENE 3: FUN FACT -->
+    <div class="scene" id="sc3">
+      <div class="nav">
+        <div class="logo-wrap"><span class="logo-hex">⬡</span><span class="logo-txt">CipherChain</span></div>
+        <div class="nav-stats"><span style="color:var(--yellow)">⭐ 1,000</span><span style="color:var(--green)">📈 2/10</span><span style="color:var(--muted)">🎯 100%</span><span style="color:#38bdf8">⏱ 01:12</span></div>
+        <div class="nav-right"><button class="nav-btn on">🎮 Play</button><span class="wallet-pill">0xA3f8...d429</span></div>
+      </div>
+      <div class="sbody">
+        <div class="fact-wrap">
+          <div class="fact-done">✅ LEVEL 1 COMPLETE</div>
+          <div class="fact-emoji">🎉</div>
+          <div class="fact-lbl">⛓ BLOCKCHAIN FACT</div>
+          <div class="fact-text">"The Bitcoin blockchain has never been successfully hacked since its launch in January 2009 — over 15 years of unbroken security."</div>
+          <button class="fact-next">Next Level →</button>
+        </div>
+      </div>
+      <div class="caption"><span class="cap-n">04/07</span><span class="cap-t">After each correct answer a fun blockchain fact pops up before the next level — educational and keeps the pace exciting.</span></div>
+    </div>
+
+    <!-- SCENE 4: LEVEL 4 MEDIUM WITH HINT -->
+    <div class="scene" id="sc4">
+      <div class="nav">
+        <div class="logo-wrap"><span class="logo-hex">⬡</span><span class="logo-txt">CipherChain</span></div>
+        <div class="nav-stats"><span style="color:var(--yellow)">⭐ 2,950</span><span style="color:var(--green)">📈 4/10</span><span style="color:var(--muted)">🎯 88%</span><span style="color:#38bdf8">⏱ 04:33</span></div>
+        <div class="nav-right"><button class="nav-btn on">🎮 Play</button><span class="wallet-pill">0xA3f8...d429</span></div>
+      </div>
+      <div class="sbody" style="align-items:flex-start;padding-top:1.5%">
+        <div class="g-wrap">
+          <div class="hud-row">
+            <div class="hud-box"><span style="font-size:clamp(10px,1.5vw,16px)">⭐</span><div class="hud-v" style="color:var(--yellow)">2,950</div><div class="hud-l">Score</div></div>
+            <div class="hud-box"><span style="font-size:clamp(10px,1.5vw,16px)">📈</span><div class="hud-v" style="color:var(--yellow)">4/10</div><div class="hud-l">Level</div></div>
+            <div class="hud-box"><span style="font-size:clamp(10px,1.5vw,16px)">🎯</span><div class="hud-v">88%</div><div class="hud-l">Accuracy</div></div>
+            <div class="hud-box"><span style="font-size:clamp(10px,1.5vw,16px)">💡</span><div class="hud-v">1</div><div class="hud-l">Hints Left</div></div>
+            <div class="hud-box" style="background:rgba(14,165,233,.07);border-color:#0369a1"><span style="font-size:clamp(10px,1.5vw,16px)">⏱</span><div class="hud-v" style="color:#38bdf8">04:33</div><div class="hud-l">TIME</div></div>
+          </div>
+          <div class="xp-wrap"><div class="xp-fill" id="xp4" style="width:0%"></div></div>
+          <div class="lcard" style="border:1px solid #eab308;background:linear-gradient(135deg,#1a1a0a 0%,#0a0a0f 100%)">
+            <div style="margin-bottom:2%"><span class="diff-badge" style="background:#1a1a0a;border:1px solid #eab308;color:#facc15">MEDIUM</span><span class="lvl-tag">LEVEL 4 / 10</span><div class="lvl-title">ETH consensus mechanism</div></div>
+            <div class="puzzle-box">After "The Merge" in September 2022, Ethereum switched from Proof of Work to a new consensus mechanism that reduced energy consumption by ~99.95%. What is the name of this mechanism?</div>
+            <div class="hint-box">💡 Hint: Validators lock up ETH as collateral (stake) to propose and attest to new blocks...</div>
+            <div class="circles">
+              <div class="circ w">✗</div><div class="circ" id="c4_1">○</div><div class="circ">○</div><div class="circ">○</div><div class="circ">○</div>
+              <span class="circ-txt" id="at4">4 attempts left before 60m lockout</span>
+            </div>
+            <div class="inp-row">
+              <div class="fake-inp active" id="inp4">proof of stake<span class="cursor"></span></div>
+              <button class="sub-btn" id="sub4">Submit ↵</button>
+            </div>
+            <div id="fb4" style="margin-top:1%"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:1.5%">
+              <button class="hint-btn" style="background:rgba(255,255,255,.03);border-color:#222;color:#444;cursor:not-allowed">💡 Use Hint Token (1 left)</button>
+              <span style="color:var(--dim);font-size:clamp(5px,.75vw,11px)">Case insensitive ✓</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="caption"><span class="cap-n">05/07</span><span class="cap-t">Level 4 — Medium. Hint token used revealing a clue. One wrong attempt already. Submitting silently — no MetaMask popup.</span></div>
+    </div>
+
+    <!-- SCENE 5: LOCKOUT -->
+    <div class="scene" id="sc5">
+      <div class="nav">
+        <div class="logo-wrap"><span class="logo-hex">⬡</span><span class="logo-txt">CipherChain</span></div>
+        <div class="nav-stats"><span style="color:var(--yellow)">⭐ 5,800</span><span style="color:var(--green)">📈 7/10</span><span style="color:var(--muted)">🎯 74%</span><span style="color:#38bdf8">⏱ 09:21</span></div>
+        <div class="nav-right"><button class="nav-btn on">🎮 Play</button><span class="wallet-pill">0xA3f8...d429</span></div>
+      </div>
+      <div class="sbody" style="align-items:flex-start;padding-top:1.5%">
+        <div class="g-wrap">
+          <div class="hud-row">
+            <div class="hud-box"><div class="hud-v" style="color:var(--yellow)">5,800</div><div class="hud-l">Score</div></div>
+            <div class="hud-box"><div class="hud-v">7/10</div><div class="hud-l">Level</div></div>
+            <div class="hud-box"><div class="hud-v">74%</div><div class="hud-l">Accuracy</div></div>
+            <div class="hud-box"><div class="hud-v">0</div><div class="hud-l">Hints Left</div></div>
+            <div class="hud-box" style="background:rgba(14,165,233,.07);border-color:#0369a1"><div class="hud-v" style="color:#38bdf8">09:21</div><div class="hud-l">TIME</div></div>
+          </div>
+          <div class="xp-wrap"><div class="xp-fill" style="width:65%"></div></div>
+          <div class="lock-banner">
+            <div style="font-size:clamp(16px,3vw,28px);margin-bottom:1%">🔒</div>
+            <div class="lock-title">LOCKED OUT</div>
+            <div class="lock-sub">Too many wrong answers on this level</div>
+            <div class="lock-timer" id="lkt">58:42</div>
+            <div class="lock-foot">remaining</div>
+          </div>
+          <div class="lcard" style="border:1px solid #ef4444;background:linear-gradient(135deg,#2a0d0d 0%,#0a0a0f 100%);opacity:.5">
+            <div><span class="diff-badge" style="background:#2a0d0d;border:1px solid #ef4444;color:#f87171">HARD</span><span class="lvl-tag">LEVEL 7 / 10</span><div class="lvl-title">Read Solidity — find the bug</div></div>
+            <div class="puzzle-box" style="font-size:clamp(5px,.85vw,11px)">function withdraw(uint amount) public {"{"}
+  require(balances[msg.sender] >= amount);
+  msg.sender.call{"{"}value: amount{"}"}("");
+  balances[msg.sender] -= amount;
+{"}"} — What vulnerability does this contain?</div>
+            <div class="circles">
+              <div class="circ w">✗</div><div class="circ w">✗</div><div class="circ w">✗</div><div class="circ w">✗</div><div class="circ w">✗</div>
+              <span class="circ-txt" style="color:var(--red);animation:pulse 1s infinite">🔒 Locked — waiting for chain...</span>
+            </div>
+            <div class="fake-inp" style="opacity:.4;font-size:clamp(6px,.9vw,12px)">🔒 Locked — 58:42 remaining</div>
+          </div>
+        </div>
+      </div>
+      <div class="caption"><span class="cap-n">06/07</span><span class="cap-t">Lockout — 5 wrong answers on Level 7 triggers a 60-minute cooldown. All 5 circles show red ✗. Input is frozen.</span></div>
+    </div>
+
+    <!-- SCENE 6: WIN -->
+    <div class="scene" id="sc6">
+      <div class="nav">
+        <div class="logo-wrap"><span class="logo-hex">⬡</span><span class="logo-txt">CipherChain</span></div>
+        <div class="nav-stats"><span style="color:var(--yellow)">⭐ 8,420</span><span style="color:var(--green)">📈 10/10</span><span style="color:var(--muted)">🎯 82%</span><span style="color:#38bdf8">⏱ 14:33</span></div>
+        <div class="nav-right">
+          <button class="nav-btn">🏠</button>
+          <button class="nav-btn on">🎮 Play</button>
+          <button class="nav-btn">🏆 Winners</button>
+          <span class="wallet-pill">0xA3f8...d429</span>
+        </div>
+      </div>
+      <div class="sbody">
+        <div class="win-wrap">
+          <div class="trophy">🏆</div>
+          <h1 class="win-title">CHAMPION!</h1>
+          <p class="win-sub">All 10 levels solved!</p>
+          <div class="win-score-box">
+            <div class="win-score-v">8,420</div>
+            <div class="win-score-l">FINAL SCORE</div>
+          </div>
+          <div style="color:var(--muted);font-size:clamp(7px,1.1vw,13px);margin-top:.5%">Time: 14m 33s</div>
+          <p style="color:var(--muted);font-size:clamp(6px,.95vw,12px);margin-top:1%">Prize sent to your wallet automatically!</p>
+          <div class="win-stats">
+            <div class="stat-box"><div class="stat-v">0.096 ETH</div><div class="stat-l">Prize Won</div></div>
+            <div class="stat-box"><div class="stat-v" style="color:var(--yellow)">80%</div><div class="stat-l">Pool Share</div></div>
+            <div class="stat-box"><div class="stat-v" style="color:var(--orange)">5x</div><div class="stat-l">Best Streak</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="caption"><span class="cap-n">07/07</span><span class="cap-t">Winner! All 10 levels solved in 14m 33s. 0.096 ETH sent automatically to wallet. 80% of the prize pool claimed.</span></div>
+    </div>
+
+  </div><!-- end stage -->
+
+  <div id="ctrls">
+    <div id="tl-wrap">
+      <div id="tl-buf"></div>
+      <div id="tl-prog"></div>
+      <div id="tl-thumb"></div>
+    </div>
+    <div id="ctrl-row">
+      <button class="ctl" id="playbtn" onclick="togglePlay()">⏸ Pause</button>
+      <button class="ctl off" onclick="prevS()">⏮ Prev</button>
+      <button class="ctl off" onclick="nextS()">Next ⏭</button>
+      <div class="sdots" id="sdots"></div>
+      <div id="sc-lbl">Home screen</div>
+      <div id="td">0:00 / 0:42</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+const N=7, DUR=[6500,4500,6500,5000,6000,5000,7000];
+const LABELS=['Home screen','Connect MetaMask','Solving Level 1','Fun fact — Level 1','Level 4 with hint','Lockout on Level 7','Winner — all 10 done!'];
+const TOTAL=DUR.reduce((a,b)=>a+b,0);
+let cur=0, playing=true, elapsed=0, scEl=0;
+let mainT=null, sts=[], lockIv=null;
+
+// particles
+const cv=document.getElementById('ptc');
+function resizePt(){cv.width=cv.parentElement.offsetWidth;cv.height=cv.parentElement.offsetHeight;}
+resizePt();
+const pts=Array.from({length:50},()=>({x:Math.random()*cv.width,y:Math.random()*cv.height,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,r:Math.random()*1.2+.4}));
+let raf;
+function drawPt(){
+  const ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
+  pts.forEach(p=>{
+    p.x+=p.vx;p.y+=p.vy;
+    if(p.x<0)p.x=cv.width;if(p.x>cv.width)p.x=0;
+    if(p.y<0)p.y=cv.height;if(p.y>cv.height)p.y=0;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,255,180,.2)';ctx.fill();
+  });
+  pts.forEach((a,i)=>pts.slice(i+1).forEach(b=>{
+    const d=Math.hypot(a.x-b.x,a.y-b.y);
+    if(d<110){ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
+      ctx.strokeStyle=`rgba(0,255,180,${.07*(1-d/110)})`;ctx.lineWidth=.5;ctx.stroke();}
+  }));
+  raf=requestAnimationFrame(drawPt);
+}
+drawPt();
+
+// dots
+function buildDots(){
+  const c=document.getElementById('sdots');c.innerHTML='';
+  for(let i=0;i<N;i++){const d=document.createElement('div');d.className='sd'+(i===0?' on':'');d.dataset.i=i;d.onclick=()=>goTo(i);c.appendChild(d);}
+}
+function updDots(n){document.querySelectorAll('.sd').forEach((d,i)=>d.classList.toggle('on',i===n));}
+
+function fmtT(ms){const s=Math.floor(ms/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
+function updBar(){
+  const p=(elapsed/TOTAL)*100;
+  document.getElementById('tl-prog').style.width=p+'%';
+  document.getElementById('tl-thumb').style.left=p+'%';
+  document.getElementById('tl-buf').style.width=Math.min(p+7,100)+'%';
+  document.getElementById('td').textContent=fmtT(elapsed)+' / '+fmtT(TOTAL);
+}
+
+function clrSts(){sts.forEach(t=>{clearTimeout(t);clearInterval(t);});sts=[];if(lockIv){clearInterval(lockIv);lockIv=null;}}
+
+function goTo(n,auto=false){
+  clrSts();
+  document.getElementById('sc'+cur).classList.remove('active');
+  cur=n;
+  document.getElementById('sc'+cur).classList.add('active');
+  updDots(cur);
+  document.getElementById('sc-lbl').textContent=LABELS[cur];
+  scEl=0;
+  runAnim(cur);
+  if(playing&&!auto)schedNext();
+}
+
+function schedNext(){
+  if(mainT)clearTimeout(mainT);
+  mainT=setTimeout(()=>{
+    const nxt=(cur+1)%N;
+    if(nxt===0)elapsed=0;
+    goTo(nxt,true);
+    if(playing)schedNext();
+  },DUR[cur]-scEl);
+}
+
+function togglePlay(){
+  playing=!playing;
+  const b=document.getElementById('playbtn');
+  if(playing){b.textContent='⏸ Pause';b.className='ctl';schedNext();}
+  else{b.textContent='▶ Play';b.className='ctl off';if(mainT)clearTimeout(mainT);}
+}
+function nextS(){goTo((cur+1)%N);}
+function prevS(){goTo((cur-1+N)%N);}
+window.togglePlay=togglePlay;window.nextS=nextS;window.prevS=prevS;
+
+document.getElementById('tl-wrap').addEventListener('click',function(e){
+  const r=this.getBoundingClientRect(),p=(e.clientX-r.left)/r.width;
+  const tm=p*TOTAL;let acc=0,si=0;
+  for(let i=0;i<N;i++){if(acc+DUR[i]>tm){si=i;scEl=tm-acc;break;}acc+=DUR[i];}
+  elapsed=tm;goTo(si);updBar();
+});
+
+setInterval(()=>{if(!playing)return;elapsed=Math.min(elapsed+100,TOTAL);scEl+=100;if(elapsed>=TOTAL)elapsed=0;updBar();},100);
+
+function typeIn(el,txt,cb,delay=0){
+  let i=0;el.innerHTML='<span class="cursor"></span>';
+  sts.push(setTimeout(()=>{
+    const iv=setInterval(()=>{
+      i++;el.innerHTML=txt.slice(0,i)+'<span class="cursor"></span>';
+      if(i>=txt.length){clearInterval(iv);if(cb)cb();}
+    },55+Math.random()*30);
+    sts.push(iv);
+  },delay));
+}
+
+function runAnim(n){
+  if(n===1){
+    const st=document.getElementById('mmst');
+    if(st){st.textContent='Connecting...';st.style.color='#facc15';st.style.animation='pulse 1s infinite';}
+    sts.push(setTimeout(()=>{if(st){st.textContent='✅ Connected! Signer cached — no more popups.';st.style.color='#00ffb4';st.style.animation='none';}},1800));
+  }
+  if(n===2){
+    const inp=document.getElementById('inp2'),sub=document.getElementById('sub2'),fb=document.getElementById('fb2'),xp=document.getElementById('xp2');
+    if(fb)fb.innerHTML='';if(sub){sub.textContent='Submit ↵';sub.className='sub-btn';}
+    if(xp){xp.style.transition='none';xp.style.width='0';}
+    typeIn(inp,'blockchain',()=>{
+      sts.push(setTimeout(()=>{
+        if(sub){sub.textContent='⏳';sub.className='sub-btn ld';}
+        if(fb)fb.innerHTML='<div class="feedback fb-ok" style="animation:fadeIn .3s ease">⏳ Checking answer on-chain...</div>';
+        sts.push(setTimeout(()=>{
+          if(sub){sub.textContent='Submit ↵';sub.className='sub-btn';}
+          if(fb)fb.innerHTML='<div class="feedback fb-ok" style="animation:fadeIn .3s ease">✅ Correct! Loading next level...</div>';
+          if(xp){xp.style.transition='width 1.2s ease';xp.style.width='10%';}
+        },1600));
+      },700));
+    },900);
+  }
+  if(n===4){
+    const sub=document.getElementById('sub4'),fb=document.getElementById('fb4'),xp=document.getElementById('xp4');
+    if(fb)fb.innerHTML='';if(sub){sub.textContent='Submit ↵';sub.className='sub-btn';}
+    if(xp){xp.style.transition='none';xp.style.width='0';sts.push(setTimeout(()=>{xp.style.transition='width 1.4s ease';xp.style.width='38%';},80));}
+    sts.push(setTimeout(()=>{
+      if(sub){sub.textContent='⏳';sub.className='sub-btn ld';}
+      if(fb)fb.innerHTML='<div class="feedback fb-ok" style="animation:fadeIn .3s ease">⏳ Checking answer on-chain...</div>';
+      sts.push(setTimeout(()=>{
+        if(sub){sub.textContent='Submit ↵';sub.className='sub-btn';}
+        if(fb)fb.innerHTML='<div class="feedback fb-ok" style="animation:fadeIn .3s ease">✅ Correct! Level 4 complete — keep going!</div>';
+      },2000));
+    },1200));
+  }
+  if(n===5){
+    let s=58*60+42;
+    const el=document.getElementById('lkt');
+    lockIv=setInterval(()=>{s--;if(s<0)s=58*60+42;const m=Math.floor(s/60),sec=s%60;if(el)el.textContent=String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');},1000);
+    sts.push(lockIv);
+  }
+}
+
+buildDots();runAnim(0);schedNext();
+})();
+</script>
